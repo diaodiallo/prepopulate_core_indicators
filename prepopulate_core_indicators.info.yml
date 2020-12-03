@@ -1,0 +1,7 @@
+name: "Prepopulate core indicators"
+type: module
+description: "Prepopulate USAID Roadmap core indicators."
+package: 'Custom'
+core_version_requirement: ^8.8 || ^9
+dependencies:
+  - 'webform:webform'

@@ -1,0 +1,81 @@
+<?php
+
+/**
+ * Implements hook_webform_element_default_properties_alter().
+ */
+function prepopulate_core_indicators_webform_submission_form_alter(array &$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+
+  if ($form["#webform_id"] == 'core_indicators_2020') {
+
+    $country = \Drupal::request()->query->get('country');
+    $sids = get_webform_submission_by_data_key('usaid_tb_roadmap_core_indicators', 'country', $country);
+    $sid = $sids->sid;
+
+    if ($country !== '' && $sid !== '' && !empty($sids)) {
+      $webform_submission = \Drupal\webform\entity\WebformSubmission::load($sid);
+      $data = $webform_submission->getData();
+      $stringFields = [
+        'country',
+        'email_address_of_reporting_authority_person',
+        'name_of_reporting_authority_person',
+      ];
+
+      foreach ($data as $key => $value) {
+        if (in_array($key, $stringFields)) {
+          $form['elements'][$key]['#default_value'] = $value;
+        }
+        else {
+          $chars = explode('_', $key);
+          if (count($chars) == 4) {
+            if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_' . $chars[3]])) {
+              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_' . $chars[3]]['#default_value'] = $value;
+            }
+          }
+          elseif (count($chars) == 3) {
+            if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2]])) {
+              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2]]['#default_value'] = $value;
+            }
+            elseif (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2]])) {
+              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2]]['#default_value'] = $value;
+            }
+          }
+          elseif (count($chars) == 5) {
+            if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '__' . $chars[4]])) {
+              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '__' . $chars[4]]['#default_value'] = $value;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Helper function to load submission by data key.
+ *
+ * @param string $web_form_id
+ *   The webform id key.
+ * @param string $data_key
+ *   The element key like 'email'.
+ * @param string $value
+ *   The element value.
+ *
+ * @return array
+ *   This will return an object;
+ */
+function get_webform_submission_by_data_key($web_form_id, $data_key, $value) {
+  $database = \Drupal::service('database');
+  $select = $database->select('webform_submission_data', 'wsd')
+    ->fields('wsd', ['sid'])
+    ->condition('wsd.webform_id', $web_form_id, '=')
+    ->condition('wsd.name', $data_key, '=')
+    ->condition('wsd.value', $value, '=');
+  $executed = $select->execute();
+  // Get all the results.
+  $results = $executed->fetchAll();
+  if (count($results) == 1) {
+    $results = reset($results);
+  }
+  return $results;
+}
+
