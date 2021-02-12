@@ -1,53 +1,106 @@
 <?php
 
+use Drupal\user\Entity\User;
+use Drupal\group\Entity\Group;
+use Drupal\prepopulate_core_indicators\Util\PrepopulateCoreIndicatorsUtility;
+
 /**
  * Implements hook_webform_element_default_properties_alter().
+ *
  */
 function prepopulate_core_indicators_webform_submission_form_alter(array &$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
 
   if ($form["#webform_id"] == 'core_indicators_2020') {
 
-    $country = \Drupal::request()->query->get('country');
+    $country = $form['elements']['country']['#default_value'];
+
+    ///$country = \Drupal::request()->query->get('country');
     $sids = get_webform_submission_by_data_key('usaid_tb_roadmap_core_indicators', 'country', $country);
     $sid = $sids->sid;
 
     if ($country !== '' && $sid !== '' && !empty($sids)) {
-      $webform_submission = \Drupal\webform\entity\WebformSubmission::load($sid);
-      $data = $webform_submission->getData();
-      $stringFields = [
-        'country',
-        'email_address_of_reporting_authority_person',
-        'name_of_reporting_authority_person',
-      ];
 
-      foreach ($data as $key => $value) {
-        if (in_array($key, $stringFields)) {
-          $form['elements'][$key]['#default_value'] = $value;
+      // Check if the submission exist in result.
+      $sids2 = get_webform_submission_by_data_key('core_indicators_2020', 'country', $country);
+      if (empty($sids2)) {
+
+        //Get current user
+        $current_uid = \Drupal::currentUser()->id();
+        $user = User::load($current_uid);
+
+        //Get group
+        $prepopulateCoreIndicatorsUtility = new PrepopulateCoreIndicatorsUtility();
+        $gid = $prepopulateCoreIndicatorsUtility->getGroupId($country);
+        $group = Group::load($gid);
+        $membership = $group->getMember($user);
+        if ($membership) {
+          $roles = $membership->getRoles();
+          $role = '';
+
+          if (in_array('country-review', array_keys($roles))) {
+            $role = 'country-review';
+          }
+          elseif (in_array('country-edit', array_keys($roles))) {
+            $role = 'country-edit';
+          }
+          else {
+            $role = 'none';
+          }
+
+          // Attach library and settings.
+          $form['#attached']['library'][] = 'prepopulate_core_indicators/hide-actions';
+          $form['#attached']['drupalSettings']['user']['role'] = $role;
         }
-        else {
-          $chars = explode('_', $key);
-          if (count($chars) == 4) {
-            if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_' . $chars[3]])) {
-              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_' . $chars[3]]['#default_value'] = $value;
-            }
+
+
+        $webform_submission = \Drupal\webform\entity\WebformSubmission::load($sid);
+        $data = $webform_submission->getData();
+        $stringFields = [
+          'country',
+          'email_address_of_reporting_authority_person',
+          'name_of_reporting_authority_person',
+        ];
+
+        foreach ($data as $key => $value) {
+          if (in_array($key, $stringFields)) {
+            $form['elements'][$key]['#default_value'] = $value;
           }
-          elseif (count($chars) == 3) {
-            if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2]])) {
-              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2]]['#default_value'] = $value;
+          else {
+            $chars = explode('_', $key);
+            if (count($chars) == 4) {
+              if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_' . $chars[3]])) {
+                $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_' . $chars[3]]['#default_value'] = $value;
+              }
             }
-            elseif (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2]])) {
-              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2]]['#default_value'] = $value;
+            elseif (count($chars) == 3) {
+              if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2]])) {
+                $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2]]['#default_value'] = $value;
+              }
+              elseif (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2]])) {
+                $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2]]['#default_value'] = $value;
+              }
             }
-          }
-          elseif (count($chars) == 5) {
-            if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '__' . $chars[4]])) {
-              $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '__' . $chars[4]]['#default_value'] = $value;
+            elseif (count($chars) == 5) {
+              if (isset($form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '__' . $chars[4]])) {
+                $form['elements']['reach_table'][$chars[0] . '_' . $chars[1]][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '_c'][$chars[0] . '_' . $chars[1] . '_' . $chars[2] . '__' . $chars[4]]['#default_value'] = $value;
+              }
             }
           }
         }
       }
     }
   }
+}
+
+function prepopulate_core_indicators_preprocess_node__country_webforms(&$variables) {
+  //Get Country
+  $country = $variables['node']->get('field_country')->getValue()[0]['target_id'];
+  $webform_id = $variables['node']->get('field_webform')->getValue()[0]['target_id'];
+  //Test if field exist with the sid. using coiuntry.
+  $sids = get_webform_submission_by_data_key('core_indicators_2020', 'country', $country);
+
+  $variables['elements']['field_webform'][0]['#webform'] = $variables['elements']['field_webform'][0]['#webform']->getSubmissionForm([], 'test');
+ // drupal_set_message(json_encode($variables['elements']['field_webform'][0]['#webform']->getSubmissionForm())." diao.");
 }
 
 /**

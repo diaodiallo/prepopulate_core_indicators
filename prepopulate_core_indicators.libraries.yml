@@ -1,0 +1,7 @@
+hide-actions:
+  version: 1.x
+  js:
+    js/hide-actions.js: {}
+  dependencies:
+      - core/jquery
+      - core/drupalSettings
